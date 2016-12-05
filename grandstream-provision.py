@@ -4,7 +4,7 @@ import sqlite3
 import MySQLdb as mysql
 from urlparse import parse_qs
 
-SQLITE_DB = 'gspr.db'
+SQLITE_DB = os.path.join(os.path.dirname(__file__), 'gspr.db')
 
 def get_style():
     style_string = '''\
