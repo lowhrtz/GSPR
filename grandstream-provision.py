@@ -145,6 +145,7 @@ $(document).ready(function(){
         'static_folder':settings[10],
         'wallpaper_server':settings[11],
         'city_code':settings[12],
+        'time_zone':settings[13],
     }
     html_string += '''\
 </head>
@@ -174,6 +175,7 @@ MySQL DB: <input id="mysql_db" name="mysql_db" value="{mysql_db}" required><br /
 Static Folder: <input id="static_folder" name="static_folder" value="{static_folder}" required><br />
 Wallpaper Server: <input id="wallpaper_server" name="wallpaper_server" value="{wallpaper_server}" required><br />
 City Code: <input id="city_code" name="city_code" value="{city_code}" required><br />
+Time Zone: <input id="time_zone" name="time_zone" value="{time_zone}" required><br />
 <button id="save-set-change">Save Setting Changes</button>
 </div></div>
 <br /><a href="{base_dir}"><button>Logout</button></a>
@@ -232,6 +234,7 @@ def get_config(path_info):
         'phonebook_url':settings[5],
         'wallpaper_server':settings[11],
         'city_code':settings[12],
+        'time_zone':settings[13],
     }
     config = '''\
 <?xml version="1.0" encoding="UTF-8" ?>
@@ -245,27 +248,35 @@ def get_config(path_info):
 
 <!--# Account Name-->
     <P270>{name}</P270>
+    <P4180>{name}</P4180>
 
 <!--# SIP Server-->
     <P47>{server_address}</P47>
 
 <!--# SIP User ID-->
     <P35>{extension}</P35>
+    <P4060>{extension}</P4060>
 
 <!--# SIP Authenticate ID-->
     <P36>{extension}</P36>
+    <P4090>{extension}</P4090>
 
 <!--# SIP Authenticate Password-->
     <P34>{secret}</P34>
+    <P4120>{secret}</P4120>
 
 <!--# Admin password-->
     <P2>{phone_admin}</P2>
 
 <!--# Name (Display Name, e.g., John Doe)-->
     <P3>{name}</P3>
+    <P27020>{name}</P27020>
 
 <!--# NTP Server-->
     <P30>{ntp_server}</P30>
+
+<!--# Time Zone-->
+    <P64>EST5EDT</P64>
 
 <!--# Voice Mail UserID-->
     <P33>*97</P33>
@@ -380,9 +391,10 @@ def submit_setup(post_input, db):
         phonebook_url = '{}/phonebook'.format(phone_server)
         wallpaper_server = 'https://{server}/gspr/'.format(server=phone_server)
         city_code = '32317'
-        db.execute('CREATE TABLE settings (user TEXT, password TEXT, phone_server TEXT, phone_admin TEXT, ntp_server TEXT, phonebook_url TEXT, mysql_host TEXT, mysql_user TEXT, mysql_pass TEXT, mysql_db TEXT, static_folder TEXT, wallpaper_server TEXT, city_code TEXT)')
+        time_zone = 'EST5EDT'
+        db.execute('CREATE TABLE settings (user TEXT, password TEXT, phone_server TEXT, phone_admin TEXT, ntp_server TEXT, phonebook_url TEXT, mysql_host TEXT, mysql_user TEXT, mysql_pass TEXT, mysql_db TEXT, static_folder TEXT, wallpaper_server TEXT, city_code TEXT, time_zone TEXT)')
         db.execute('CREATE TABLE ext_mac_map (extension TEXT, mac TEXT)')
-        db.execute('INSERT INTO settings VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)', (user, pw1, phone_server, phone_admin, ntp_server, phonebook_url, mysql_host, mysql_user, mysql_pass, mysql_db, static_folder, wallpaper_server, city_code))
+        db.execute('INSERT INTO settings VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)', (user, pw1, phone_server, phone_admin, ntp_server, phonebook_url, mysql_host, mysql_user, mysql_pass, mysql_db, static_folder, wallpaper_server, city_code, time_zone))
         db.commit()
         db.close()
     return return_string.format(base_dir=BASE_URL_DIRECTORY, message=message)
@@ -446,10 +458,11 @@ def edit_settings(post_input):
     static_folder = post_input.get('static_folder', [''])[0]
     wallpaper_server = post_input.get('wallpaper_server', [''])[0]
     city_code = post_input.get('city_code', [''])[0]
+    time_zone = post_input.get('time_zone', [''])[0]
     try:
         db = sqlite3.connect(SQLITE_DB)
-        db.execute('UPDATE settings SET phone_server=?, phone_admin=?, phonebook_url=?, ntp_server=?, mysql_host=?, mysql_user=?, mysql_pass=?, mysql_db=?, static_folder=?, wallpaper_server=?, city_code=?',
-           (phone_server, phone_admin, phonebook_url, ntp_server, mysql_host, mysql_user, mysql_pass, mysql_db, static_folder, wallpaper_server, city_code))
+        db.execute('UPDATE settings SET phone_server=?, phone_admin=?, phonebook_url=?, ntp_server=?, mysql_host=?, mysql_user=?, mysql_pass=?, mysql_db=?, static_folder=?, wallpaper_server=?, city_code=?, time_zone=?',
+           (phone_server, phone_admin, phonebook_url, ntp_server, mysql_host, mysql_user, mysql_pass, mysql_db, static_folder, wallpaper_server, city_code, time_zone))
         db.commit()
         html_string = '<div class="header">Settings Updated!</div>'
     except sqlite3.OperationalError:
