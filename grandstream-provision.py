@@ -276,7 +276,7 @@ def get_config(path_info):
     <P30>{ntp_server}</P30>
 
 <!--# Time Zone-->
-    <P64>EST5EDT</P64>
+    <P64>{time_zone}</P64>
 
 <!--# Voice Mail UserID-->
     <P33>*97</P33>
@@ -395,6 +395,7 @@ def submit_setup(post_input, db):
         db.execute('CREATE TABLE settings (user TEXT, password TEXT, phone_server TEXT, phone_admin TEXT, ntp_server TEXT, phonebook_url TEXT, mysql_host TEXT, mysql_user TEXT, mysql_pass TEXT, mysql_db TEXT, static_folder TEXT, wallpaper_server TEXT, city_code TEXT, time_zone TEXT)')
         db.execute('CREATE TABLE ext_mac_map (extension TEXT, mac TEXT)')
         db.execute('INSERT INTO settings VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)', (user, pw1, phone_server, phone_admin, ntp_server, phonebook_url, mysql_host, mysql_user, mysql_pass, mysql_db, static_folder, wallpaper_server, city_code, time_zone))
+        db.execute('UPDATE settings set time_zone=?', (time_zone, ))
         db.commit()
         db.close()
     return return_string.format(base_dir=BASE_URL_DIRECTORY, message=message)
