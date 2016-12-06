@@ -88,6 +88,12 @@ function list_phones() {
   $("#phone-list").load("phone-list");
 }
 
+function delete_map_entry(ext) {
+  $("#phone-list-message-area").empty();
+  $("#phone-list-message-area").load("delete-map-entry", {'extension':ext});
+  list_phones();
+}
+
 function select_radio(selected, sibling) {
   if(sibling.startsWith("#ext_")) {
     $("[id^='ext_']").prop("disabled", false);
@@ -103,6 +109,8 @@ $(document).ready(function(){
   $("#add-phone").click(function (){
     $("#phone-add-message-area").empty();
     $("#phone-add-message-area").load("add-phone", {'extension':$("#extension").val(),'mac':$("#mac").val()});
+    $("#extension").val("");
+    $("#mac").val("");
     setTimeout(list_phones, 500);
   });
 
@@ -126,6 +134,7 @@ $(document).ready(function(){
     'static_folder':$("#static_folder").val(),
     'wallpaper_server':$("#wallpaper_server").val(),
     'city_code':$("#city_code").val(),
+    'time_zone':$("#time_zone").val(),
     });
   });
 
@@ -158,7 +167,7 @@ Extension: <input id="extension" name="extension" required> &nbsp;&nbsp;MAC: <in
 <input type="button" id="add-phone" value="Associate a Phone with Account">
 </div><br />
 <div class="bordered">
-<div id="switch-phone-message-area"></div>
+<div id="phone-list-message-area"></div>
 <div id="phone-list"></div><div class="clear"><button>Switch Phones</button></div>
 </div><br /><br />
 <div class="bordered">
@@ -440,10 +449,24 @@ def phone_list():
             html_string += '''\
 <div class="phone-list-item">
 <input type="radio" name="switch_extension" id="ext_{extension}" onclick="select_radio('#ext_{extension}', '#mac_{mac}')" /><label for="ext_{extension}" onclick="select_radio('#ext_{extension}', '#mac_{mac}')">{extension}</label> &nbsp;&nbsp;&nbsp;
-<input type="radio" name="switch_mac" id="mac_{mac}" onclick="select_radio('#mac_{mac}', '#ext_{extension}')" /><label for="mac_{mac}" onclick="select_radio('#mac_{mac}', '#ext_{extension}')">{mac}</label></div>
+<input type="radio" name="switch_mac" id="mac_{mac}" onclick="select_radio('#mac_{mac}', '#ext_{extension}')" /><label for="mac_{mac}" onclick="select_radio('#mac_{mac}', '#ext_{extension}')">{mac}</label>
+<button id="delete_ext_{extension}" onclick="delete_map_entry('{extension}')">Delete</button></div>
 '''.format(extension=extension,mac=mac)
     except sqlite3.OperationalError:
         html_string = '<div class="header">Problem with the databse. May be corrupted!</div>'
+    db.close()
+    return html_string
+
+def delete_map_entry(post_input):
+    extension = post_input.get('extension', [''])[0]
+    html_string = ''
+    try:
+        db = sqlite3.connect(SQLITE_DB)
+        db.execute('DELETE FROM ext_mac_map WHERE extension=?', (extension,))
+        db.commit()
+        html_string = '<div class="header">Extension Deleted: {extension}'.format(extension=extension)
+    except sqlite3.OperationalError:
+        html_string = '<div class="header">Problem with the database. May be corrupted!</div>'
     db.close()
     return html_string
 
@@ -537,6 +560,13 @@ def application(environ,start_response):
 
     elif path_info == '/phone-list':
         html_string = phone_list()
+
+    elif path_info == '/delete-map-entry':
+        if request_method != 'POST':
+            status = status_REDIRECT
+            response_header = [('Location', BASE_URL_DIRECTORY)]
+        else:
+            html_string = delete_map_entry(post_input)
 
     elif path_info == '/edit-settings':
         html_string = '<head>{style}</head>'.format(style=get_style())
