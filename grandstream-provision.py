@@ -333,6 +333,16 @@ def get_config(path_info):
 <!--# 4: MMMM dd, dddd eg. October 31, Monday-->
     <P102>3</P102>
 
+<!--# Virtual Multi-Purpose Keys-->
+<!--# VPK Mode. 0 - Advanced, 1 - Traditional. Default is 0-->
+    <P8369>0</P8369>
+
+<!--# Show Label Background. 0 - No, 1 - Yes. Default is 0-->
+    <P8345>0</P8345>
+
+<!--# Use Long Label. 0 - No, 1 - Yes. Default is 0-->
+    <P8346>1</P8346>
+
 <!--# Wallpaper Settings-->
 <!--# Wallpaper Source. O - Default, 1 - Download, 2 - USB, 3 - Uploaded-->
     <P2916>1</P2916>
