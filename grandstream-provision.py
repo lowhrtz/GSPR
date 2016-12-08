@@ -89,9 +89,12 @@ function list_phones() {
 }
 
 function delete_map_entry(ext) {
-  $("#phone-list-message-area").empty();
-  $("#phone-list-message-area").load("delete-map-entry", {'extension':ext});
-  list_phones();
+  ret = confirm("Are you sure you want to delete extension " + ext + "?");
+  if(ret == true) {
+    $("#phone-list-message-area").empty();
+    $("#phone-list-message-area").load("delete-map-entry", {'extension':ext});
+    list_phones();
+  }
 }
 
 function select_radio(selected, sibling) {
@@ -452,7 +455,7 @@ def phone_list():
     html_string = ''
     try:
         db = sqlite3.connect(SQLITE_DB)
-        c = db.execute('SELECT * from ext_mac_map')
+        c = db.execute('SELECT * from ext_mac_map ORDER BY extension')
         for row in c:
             extension = row[0]
             mac = row[1]
@@ -474,7 +477,7 @@ def delete_map_entry(post_input):
         db = sqlite3.connect(SQLITE_DB)
         db.execute('DELETE FROM ext_mac_map WHERE extension=?', (extension,))
         db.commit()
-        html_string = '<div class="header">Extension Deleted: {extension}'.format(extension=extension)
+        html_string = '<div class="header">Extension {extension} Deleted'.format(extension=extension)
     except sqlite3.OperationalError:
         html_string = '<div class="header">Problem with the database. May be corrupted!</div>'
     db.close()
@@ -501,6 +504,7 @@ def edit_settings(post_input):
         html_string = '<div class="header">Settings Updated!</div>'
     except sqlite3.OperationalError:
         html_string = '<div class="header">Problem with the database. May be corrupted!</div>'
+    db.close()
     return html_string
 
 def application(environ,start_response):
