@@ -353,6 +353,9 @@ def get_config(path_info):
 <!--# Wallpaper Server Path-->
     <P2917>{wallpaper_server}</P2917>
 
+<!--# Dial Plan. Default value is {{ x+ | \+x+ | *x+ | *xx*x+ }}-->
+    <P290>{{ x+ | \\+x+ | *x+ | *xx*x+ | *1x }}</P290>
+
 <!--####################################################################-->
   </config>
 </gs_provision>
