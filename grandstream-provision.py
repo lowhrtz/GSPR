@@ -541,7 +541,7 @@ def application(environ,start_response):
            db.close()
            html_string = 'Problem with database!'
         except sqlite3.OperationalError:
-           db.close()
+           #db.close()
            html_string = get_setup()
 
     elif path_info == "/admin":
