@@ -9,6 +9,7 @@ SQLITE_DB = os.path.join(os.path.dirname(__file__), 'gspr.db')
 def get_style():
     style_string = '''\
 <title>Grandstream Provision</title>
+<link rel="stylesheet" href="https://ajax.googleapis.com/ajax/libs/jqueryui/1.12.1/themes/smoothness/jquery-ui.css">
 <style>
 body {
   background: #234879;
@@ -52,13 +53,12 @@ div.individualButtons {
   float: right;
   padding-right: 10px;
 }
-
-div.individualButtons > button {
+ button {
   border-radius: 10%;
 }
 
 button.individualMisc {
-  background-color: powderblue;
+  background-color: #66b4ce;
 }
 
 #misc-dialog > textarea {
@@ -67,6 +67,23 @@ button.individualMisc {
 
 button.deleteExt {
   background-color: red;
+}
+
+.ui-dialog {
+  background-color: #66b4ce;
+}
+
+.ui-dialog-buttonpane {
+  background-color: #5075a7;
+}
+
+.ui-dialog-titlebar {
+  background: #234879;
+  color: #fefefe;
+}
+
+.del-ext-dialog > .ui-dialog-titlebar {
+  background: red;
 }
 </style>
 '''
@@ -102,7 +119,6 @@ def get_admin(db):
     settings = c.fetchone()
     html_string = '<head>{style}'.format(style=get_style())
     html_string += '''
-<link rel="stylesheet" href="https://ajax.googleapis.com/ajax/libs/jqueryui/1.12.1/themes/smoothness/jquery-ui.css">
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js"></script>
 <script src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.12.1/jquery-ui.min.js"></script>
 <script type="text/javascript">
@@ -141,6 +157,7 @@ function delete_map_entry(ext) {
     width: "auto",
     position: {my: "center", at: "center", of: $("#li_ext_" + ext)},
     modal: true,
+    dialogClass: "del-ext-dialog",
     close: function(ev,ui) {
       $(this).find("p").empty();
     },
