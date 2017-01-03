@@ -47,6 +47,27 @@ div.phone-list-item {
   margin: 10px auto;
   width: 30%;
 }
+
+div.individualButtons {
+  float: right;
+  padding-right: 10px;
+}
+
+div.individualButtons > button {
+  border-radius: 10%;
+}
+
+button.individualMisc {
+  background-color: powderblue;
+}
+
+#misc-dialog > textarea {
+  height: 20;
+}
+
+button.deleteExt {
+  background-color: red;
+}
 </style>
 '''
     return style_string
@@ -81,20 +102,61 @@ def get_admin(db):
     settings = c.fetchone()
     html_string = '<head>{style}'.format(style=get_style())
     html_string += '''
+<link rel="stylesheet" href="https://ajax.googleapis.com/ajax/libs/jqueryui/1.12.1/themes/smoothness/jquery-ui.css">
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js"></script>
+<script src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.12.1/jquery-ui.min.js"></script>
 <script type="text/javascript">
 function list_phones() {
   $("#phone-list").empty();
   $("#phone-list").load("phone-list");
 }
 
+function open_misc_dialog(ext) {
+  $("#misc-dialog > p").append("<form><textarea id='misc-area' rows='10' cols='70'></textarea></form>");
+  $("#misc-area").load("get-ext-misc", {'extension':ext});
+  $("#misc-dialog").dialog({
+    position: {my: "center", at: "center", of: $("#li_ext_" + ext)},
+    width: "auto",
+    modal: true,
+    close: function(ev,ui) {
+      $(this).find("p").empty();
+    },
+    buttons: {
+      "OK": function() {
+        $("#phone-list-message-area").empty();
+        $("#phone-list-message-area").load("set-ext-misc", {'extension':ext, 'misc':$("#misc-area").val()});
+        $(this).dialog("close");
+      },
+      Cancel: function() {
+        $(this).dialog("close");
+      }
+    }
+  });
+}
+
 function delete_map_entry(ext) {
-  ret = confirm("Are you sure you want to delete extension " + ext + "?");
-  if(ret == true) {
-    $("#phone-list-message-area").empty();
-    $("#phone-list-message-area").load("delete-map-entry", {'extension':ext});
-    list_phones();
-  }
+  $("#delete-confirm > p").append("<span class='ui-icon ui-icon-alert' style='float:left; margin-top: 3px;'></span>Are you sure you want to delete extension " + ext + " ?");
+  $("#delete-confirm").dialog({
+    resizable: false,
+    width: "auto",
+    position: {my: "center", at: "center", of: $("#li_ext_" + ext)},
+    modal: true,
+    close: function(ev,ui) {
+      $(this).find("p").empty();
+    },
+    buttons: {
+      "Delete Extension": function() {
+        $(this).dialog("close");
+        $("#phone-list-message-area").empty();
+        $("#phone-list-message-area").load("delete-map-entry", {'extension':ext});
+        //list_phones();
+        setTimeout(list_phones, 500);
+      },
+      Cancel: function() {
+        $(this).dialog("close");
+      }
+    }
+  });
 }
 
 function select_radio(selected, sibling) {
@@ -117,10 +179,6 @@ $(document).ready(function(){
     setTimeout(list_phones, 500);
   });
 
-  $("input:radio").select(function (){
-    alert('Fire!');
-    $(this).siblings().prop("disabled", true);;
-  });
 
   $("#save-set-change").click(function (){
     $("#edit-settings-message-area").empty();
@@ -138,6 +196,7 @@ $(document).ready(function(){
     'wallpaper_server':$("#wallpaper_server").val(),
     'city_code':$("#city_code").val(),
     'time_zone':$("#time_zone").val(),
+    'misc':$("#misc").val(),
     });
   });
 
@@ -158,9 +217,12 @@ $(document).ready(function(){
         'wallpaper_server':settings[11],
         'city_code':settings[12],
         'time_zone':settings[13],
+        'misc':settings[14],
     }
     html_string += '''\
 </head>
+<div id="delete-confirm" title="Delete Extension"><p></p></div>
+<div id="misc-dialog" title="Miscellaneous Options"><p></p></div>
 <div class="header">Administer Provisioning</div>
 <div class="info">
 Available Options<br />
@@ -188,6 +250,7 @@ Static Folder: <input id="static_folder" name="static_folder" value="{static_fol
 Wallpaper Server: <input id="wallpaper_server" name="wallpaper_server" value="{wallpaper_server}" required><br />
 City Code: <input id="city_code" name="city_code" value="{city_code}" required><br />
 Time Zone: <input id="time_zone" name="time_zone" value="{time_zone}" required><br />
+<span style="vertical-align: top">Miscellaneous: </span><textarea id="misc" name="misc" rows="10" cols="70" value="{misc}" required>{misc}</textarea><br /><br />
 <button id="save-set-change">Save Setting Changes</button>
 </div></div>
 <br /><a href="{base_dir}"><button>Logout</button></a>
@@ -211,8 +274,10 @@ def get_config(path_info):
         return 'Database has not been set up yet. Run the setup from a web browser.'
 
     try:
-        c = db.execute('SELECT extension FROM ext_mac_map WHERE mac=?', (mac,))
-        extension = c.fetchone()[0]
+        c = db.execute('SELECT extension, misc FROM ext_mac_map WHERE mac=?', (mac,))
+        rec = c.fetchone()
+        extension = rec[0]
+        ext_misc = rec[1]
     except IOError:
         return 'Problem loading db file.'
     except sqlite3.OperationalError:
@@ -238,6 +303,7 @@ def get_config(path_info):
     string_format = {
         'mac':mac,
         'extension':extension,
+        'ext_misc': ext_misc,
         'name':name,
         'secret':secret,
         'server_address':settings[2],
@@ -247,6 +313,7 @@ def get_config(path_info):
         'wallpaper_server':settings[11],
         'city_code':settings[12],
         'time_zone':settings[13],
+        'misc':settings[14],
     }
     config = '''\
 <?xml version="1.0" encoding="UTF-8" ?>
@@ -356,6 +423,12 @@ def get_config(path_info):
 <!--# Dial Plan. Default value is {{ x+ | \+x+ | *x+ | *xx*x+ }}-->
     <P290>{{ x+ | \\+x+ | *x+ | *xx*x+ | *1x }}</P290>
 
+<!--# Miscellaneous Items-->
+
+{misc}
+
+{ext_misc}
+
 <!--####################################################################-->
   </config>
 </gs_provision>
@@ -417,10 +490,12 @@ def submit_setup(post_input, db):
         wallpaper_server = 'https://{server}/gspr/'.format(server=phone_server)
         city_code = '32317'
         time_zone = 'EST5EDT'
-        db.execute('CREATE TABLE settings (user TEXT, password TEXT, phone_server TEXT, phone_admin TEXT, ntp_server TEXT, phonebook_url TEXT, mysql_host TEXT, mysql_user TEXT, mysql_pass TEXT, mysql_db TEXT, static_folder TEXT, wallpaper_server TEXT, city_code TEXT, time_zone TEXT)')
-        db.execute('CREATE TABLE ext_mac_map (extension TEXT, mac TEXT)')
-        db.execute('INSERT INTO settings VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)', (user, pw1, phone_server, phone_admin, ntp_server, phonebook_url, mysql_host, mysql_user, mysql_pass, mysql_db, static_folder, wallpaper_server, city_code, time_zone))
+        misc = ''
+        db.execute('CREATE TABLE settings (user TEXT, password TEXT, phone_server TEXT, phone_admin TEXT, ntp_server TEXT, phonebook_url TEXT, mysql_host TEXT, mysql_user TEXT, mysql_pass TEXT, mysql_db TEXT, static_folder TEXT, wallpaper_server TEXT, city_code TEXT, time_zone TEXT, misc TEXT)')
+        db.execute('CREATE TABLE ext_mac_map (extension TEXT, mac TEXT, misc TEXT)')
+        db.execute('INSERT INTO settings VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', (user, pw1, phone_server, phone_admin, ntp_server, phonebook_url, mysql_host, mysql_user, mysql_pass, mysql_db, static_folder, wallpaper_server, city_code, time_zone, misc))
         db.execute('UPDATE settings set time_zone=?', (time_zone, ))
+        db.execute('UPDATE settings set misc=?', (misc, ))
         db.commit()
         db.close()
     return return_string.format(base_dir=BASE_URL_DIRECTORY, message=message)
@@ -446,7 +521,7 @@ def add_phone(post_input):
         if extension_exists and mac_exists:
             return '<div class="header">Both Extension and Phone Already in DB!</div>'
 
-        db.execute('INSERT INTO ext_mac_map VALUES (?,?)', (extension, mac))
+        db.execute('INSERT INTO ext_mac_map VALUES (?,?,?)', (extension, mac, ''))
         db.commit()
         db.close()
     except sqlite3.OperationalError:
@@ -458,18 +533,51 @@ def phone_list():
     html_string = ''
     try:
         db = sqlite3.connect(SQLITE_DB)
-        c = db.execute('SELECT * from ext_mac_map ORDER BY extension')
+        c = db.execute('SELECT * FROM ext_mac_map ORDER BY extension')
         for row in c:
             extension = row[0]
             mac = row[1]
             html_string += '''\
-<div class="phone-list-item">
-<input type="radio" name="switch_extension" id="ext_{extension}" onclick="select_radio('#ext_{extension}', '#mac_{mac}')" /><label for="ext_{extension}" onclick="select_radio('#ext_{extension}', '#mac_{mac}')">{extension}</label> &nbsp;&nbsp;&nbsp;
+<div class="phone-list-item" id="li_ext_{extension}">
+<input type="radio" name="switch_extension" id="ext_{extension}" onclick="select_radio('#ext_{extension}', '#mac_{mac}')" /><label for="ext_{extension}" onclick="select_radio('#ext_{extension}', '#mac_{mac}')">{extension}</label>
+ &nbsp;&nbsp;&nbsp;
 <input type="radio" name="switch_mac" id="mac_{mac}" onclick="select_radio('#mac_{mac}', '#ext_{extension}')" /><label for="mac_{mac}" onclick="select_radio('#mac_{mac}', '#ext_{extension}')">{mac}</label>
-<button id="delete_ext_{extension}" onclick="delete_map_entry('{extension}')">Delete</button></div>
+<input type="hidden" id="hidden_ext_{extension}" value="Hello World" />
+<div class="individualButtons"><button class="individualMisc" id="indiv_misc_{extension}" onclick="open_misc_dialog('{extension}')">Misc</button>
+<button class="deleteExt" id="delete_ext_{extension}" onclick="delete_map_entry('{extension}')">Delete</button></div>
+</div>
 '''.format(extension=extension,mac=mac)
     except sqlite3.OperationalError:
         html_string = '<div class="header">Problem with the databse. May be corrupted!</div>'
+    db.close()
+    return html_string
+
+def get_ext_misc(post_input):
+    extension = post_input.get('extension', [''])[0]
+    html_string = ''
+    try:
+        db = sqlite3.connect(SQLITE_DB)
+        c = db.execute('SELECT misc FROM ext_mac_map WHERE extension=?', (extension,))
+        html_string = c.fetchone()[0]
+    except sqlite3.OperationalError:
+        html_string = 'Operational Error: Problem with the database. May be corrupted!'
+    except IndexError:
+        html_string = 'Index Error: Problem with the database. May be corrupted!'
+    db.close()
+    if html_string is None:
+        html_string = ''
+    return str(html_string)
+
+def set_ext_misc(post_input):
+    extension = post_input.get('extension', [''])[0]
+    misc = post_input.get('misc', [''])[0]
+    try:
+        db = sqlite3.connect(SQLITE_DB)
+        db.execute('UPDATE ext_mac_map SET misc=? WHERE extension=?', (misc, extension))
+        db.commit()
+        html_string = '<div class="header">Miscellaneous Options Updated for Extension {extension}'.format(extension=extension, misc=misc)
+    except sqlite3.OperationalError:
+        html_string = '<div class="header">Problem with the database. May be corrupted!</div>'
     db.close()
     return html_string
 
@@ -499,15 +607,34 @@ def edit_settings(post_input):
     wallpaper_server = post_input.get('wallpaper_server', [''])[0]
     city_code = post_input.get('city_code', [''])[0]
     time_zone = post_input.get('time_zone', [''])[0]
+    misc = post_input.get('misc', [''])[0]
     try:
         db = sqlite3.connect(SQLITE_DB)
-        db.execute('UPDATE settings SET phone_server=?, phone_admin=?, phonebook_url=?, ntp_server=?, mysql_host=?, mysql_user=?, mysql_pass=?, mysql_db=?, static_folder=?, wallpaper_server=?, city_code=?, time_zone=?',
-           (phone_server, phone_admin, phonebook_url, ntp_server, mysql_host, mysql_user, mysql_pass, mysql_db, static_folder, wallpaper_server, city_code, time_zone))
+        db.execute('UPDATE settings SET phone_server=?, phone_admin=?, phonebook_url=?, ntp_server=?, mysql_host=?, mysql_user=?, mysql_pass=?, mysql_db=?, static_folder=?, wallpaper_server=?, city_code=?, time_zone=?, misc=?',
+           (phone_server, phone_admin, phonebook_url, ntp_server, mysql_host, mysql_user, mysql_pass, mysql_db, static_folder, wallpaper_server, city_code, time_zone, misc))
         db.commit()
         html_string = '<div class="header">Settings Updated!</div>'
     except sqlite3.OperationalError:
         html_string = '<div class="header">Problem with the database. May be corrupted!</div>'
     db.close()
+    return html_string
+
+def get_static_content(filename):
+    try:
+        db = sqlite3.connect(SQLITE_DB)
+        c = db.execute('SELECT static_folder FROM settings')
+        static_folder = c.fetchone()[0]
+        path = os.path.join(static_folder, filename)
+        if os.path.exists(path):
+            f = open(path, 'rb')
+            html_string = f.read()
+            f.close()
+        else:
+            html_string = None
+        db.close()
+    except sqlite3.OperationalError:
+        db.close()
+        html_string = None
     return html_string
 
 def application(environ,start_response):
@@ -578,6 +705,20 @@ def application(environ,start_response):
     elif path_info == '/phone-list':
         html_string = phone_list()
 
+    elif path_info == '/get-ext-misc':
+        if request_method != 'POST':
+            status = status_REDIRECT
+            response_header = [('Location', BASE_URL_DIRECTORY)]
+        else:
+            html_string = get_ext_misc(post_input)
+
+    elif path_info == '/set-ext-misc':
+        if request_method != 'POST':
+            status = status_REDIRECT
+            response_header = [('Location', BASE_URL_DIRECTORY)]
+        else:
+            html_string = set_ext_misc(post_input)
+
     elif path_info == '/delete-map-entry':
         if request_method != 'POST':
             status = status_REDIRECT
@@ -609,53 +750,38 @@ def application(environ,start_response):
                 html_string += '<div class="header">Problem with database!</div>'
             except sqlite3.OperationalError:
                 html_string += submit_setup(post_input, db)
-                db.close()
+                #db.close()
 
     elif is_config_request(path_info):
         response_header = [('Content-type','text/xml')]
         html_string = get_config(path_info)
 
     elif path_info.endswith('.bin'):
-        filename = path_info.replace('/', '')
-        try:
-            db = sqlite3.connect(SQLITE_DB)
-            c = db.execute('SELECT static_folder FROM settings')
-            static_folder = c.fetchone()[0]
-            path = os.path.join(static_folder, filename)
-            if os.path.exists(path):
-                response_header = [('content-type', 'application/octet-stream')]
-                f = open(path, 'rb')
-                html_string = f.read()
-                f.close()
-            else:
-                html_string = '404 Not Found'
-                status = status_Not_Found
-            db.close()
-        except sqlite3.OperationalError:
-            db.close()
-            html_string = '404 Not Found'
+        path, filename = os.path.split(path_info)
+        html_string = get_static_content(filename)
+        if html_string is None or path != '/':
             status = status_Not_Found
+            html_string = '404 Not Found'
+        else:
+            response_header = [('content-type', 'application/octet-stream')]
 
     elif path_info.endswith('.jpg'):
-        filename = path_info.replace('/', '')
-        try:
-            db = sqlite3.connect(SQLITE_DB)
-            c = db.execute('SELECT static_folder FROM settings')
-            static_folder = c.fetchone()[0]
-            path = os.path.join(static_folder, filename)
-            if os.path.exists(path):
-                response_header = [('content-type', 'image/jpeg')]
-                f = open(path, 'rb')
-                html_string = f.read()
-                f.close()
-            else:
-                html_string = '404 Not Found'
-                status = status_Not_Found
-            db.close()
-        except sqlite3.OperationalError:
-            db.close()
-            html_string = '404 Not Found'
+        path, filename = os.path.split(path_info)
+        html_string = get_static_content(filename)
+        if html_string is None or path != '/':
             status = status_Not_Found
+            html_string = '404 Not Found'
+        else:
+            response_header = [('content-type', 'image/jpeg')]
+
+    elif path_info.startswith('/static') and path_info.endswith('.xml'):
+        path, filename = os.path.split(path_info)
+        html_string = get_static_content(filename)
+        if html_string is None or path.count('/') > 1:
+            status = status_Not_Found
+            html_string = '404 Not Found'
+        else:
+            response_header = [('content-type', 'text/xml')]
 
     else:
         html_string = '404 Not Found'
