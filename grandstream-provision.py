@@ -519,7 +519,7 @@ def submit_setup(post_input, db):
 
 def add_phone(post_input):
     extension = post_input.get('extension', [''])[0]
-    mac = post_input.get('mac', [''])[0]
+    mac = post_input.get('mac', [''])[0].lower()
     if not extension or not mac:
         return '<div class="header">Problem processing request!{a}</div>'.format(a=post_input.keys())
     try:
