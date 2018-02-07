@@ -2,6 +2,7 @@ import os
 import re
 import sqlite3
 import MySQLdb as mysql
+from beaker.middleware import SessionMiddleware
 from urlparse import parse_qs
 
 SQLITE_DB = os.path.join(os.path.dirname(__file__), 'gspr.db')
@@ -131,7 +132,7 @@ function show_message(element, ajax_url, post_data) {
   $(element).empty();
   $(element).show();
   $(element).load(ajax_url, post_data);
-  $(element).delay(2000).fadeOut("slow");
+  $(element).delay(3000).fadeOut(3000);
 }
 
 function open_misc_dialog(ext) {
@@ -272,7 +273,7 @@ Time Zone: <input id="time_zone" name="time_zone" value="{time_zone}" required><
 <span style="vertical-align: top">Miscellaneous: </span><textarea id="misc" name="misc" rows="10" cols="70" value="{misc}" required>{misc}</textarea><br /><br />
 <button id="save-set-change">Save Setting Changes</button>
 </div></div>
-<br /><a href="{base_dir}"><button>Logout</button></a>
+<br /><a href="logout"><button>Logout</button></a>
 </div>
 '''.format(**string_format)
     return html_string
@@ -673,29 +674,36 @@ def application(environ,start_response):
     raw_post = environ.get('wsgi.input', '')
     post_input = parse_qs(raw_post.readline().decode(),True)
 
+    session = environ['beaker.session']
+    is_authed = session.get('is_authed', None)
+
     status = status_OK
     html_string = ''
 
     #html_string = path_info
     if path_info == '' or path_info == '/':
+        if is_authed is True:
+            status = status_REDIRECT
+            admin_url = os.path.join(BASE_URL_DIRECTORY, 'admin')
+            response_header = [('Location', admin_url)]
         try:
-           db = sqlite3.connect(SQLITE_DB)
-           db.execute('SELECT * FROM settings')
-           html_string = get_index(db)
-           db.close()
+            db = sqlite3.connect(SQLITE_DB)
+            db.execute('SELECT * FROM settings')
+            html_string = get_index(db)
+            db.close()
         except IOError:
-           db.close()
-           html_string = 'Problem with database!'
+            db.close()
+            html_string = 'Problem with database!'
         except sqlite3.OperationalError:
-           #db.close()
-           html_string = get_setup()
+            #db.close()
+            html_string = get_setup()
 
     elif path_info == "/admin":
         html_string = '<head>{style}</head>'.format(style=get_style())
-        if request_method != 'POST':
+        if request_method != 'POST' and is_authed is not True:
             status = status_REDIRECT
             response_header = [('Location', BASE_URL_DIRECTORY)]
-        else:
+        elif is_authed is None:
             try:
                 db = sqlite3.connect(SQLITE_DB)
                 c = db.execute('SELECT password FROM settings')
@@ -705,6 +713,8 @@ def application(environ,start_response):
                     status = status_Forbidden
                     html_string += '<div class="header">Wrong Password</div><div><a href="{base_dir}"><button>Back to Main Page</button></a></div>'.format(base_dir=BASE_URL_DIRECTORY)
                 else:
+                    session['is_authed'] = True
+                    session.save()
                     html_string = get_admin(db)
                 db.close()
             except IOError:
@@ -713,21 +723,42 @@ def application(environ,start_response):
             except sqlite3.OperationalError:
                 html_string += submit_setup(post_input, db)
                 db.close()
+        elif is_authed is True:
+            try:
+                db = sqlite3.connect(SQLITE_DB)
+                html_string = get_admin(db)
+                db.close()
+            except IOError:
+                db.close()
+                html_string += '<div class="header">Problem with database!</div>'
+        elif is_authed is False:
+            status = status_Forbidden
+            html_string = '<div class="header">Forbidden!</div>'
 
     elif path_info == "/add-phone":
         if request_method != 'POST':
             status = status_REDIRECT
             response_header = [('Location', BASE_URL_DIRECTORY)]
+        elif is_authed is not True:
+            status = status_Forbidden
+            html_string = 'Forbidden!'
         else:
             html_string = add_phone(post_input)
 
     elif path_info == '/phone-list':
-        html_string = phone_list()
+        if is_authed is not True:
+            status = status_Forbidden
+            html_string = 'Forbidden!'
+        else:
+            html_string = phone_list()
 
     elif path_info == '/get-ext-misc':
         if request_method != 'POST':
             status = status_REDIRECT
             response_header = [('Location', BASE_URL_DIRECTORY)]
+        elif is_authed is not True:
+            status = status_Forbidden
+            html_string = 'Forbidden!'
         else:
             html_string = get_ext_misc(post_input)
 
@@ -735,6 +766,9 @@ def application(environ,start_response):
         if request_method != 'POST':
             status = status_REDIRECT
             response_header = [('Location', BASE_URL_DIRECTORY)]
+        elif is_authed is not True:
+            status = status_Forbidden
+            html_string = 'Forbidden!'
         else:
             html_string = set_ext_misc(post_input)
 
@@ -742,6 +776,9 @@ def application(environ,start_response):
         if request_method != 'POST':
             status = status_REDIRECT
             response_header = [('Location', BASE_URL_DIRECTORY)]
+        elif is_authed is not True:
+            status = status_Forbidden
+            html_string = 'Forbidden!'
         else:
             html_string = delete_map_entry(post_input)
 
@@ -750,6 +787,9 @@ def application(environ,start_response):
         if request_method != 'POST':
             status = status_REDIRECT
             response_header = [('Location', BASE_URL_DIRECTORY)]
+        elif is_authed is not True:
+            status = status_Forbidden
+            html_string = 'Forbidden!'
         else: 
             html_string += edit_settings(post_input)
 
@@ -763,6 +803,7 @@ def application(environ,start_response):
                 db = sqlite3.connect(SQLITE_DB)
                 db.execute('SELECT * FROM settings')
                 db.close()
+                status = status_Forbidden
                 html_string += '<div class="header">Database alread set up!</div>'
             except IOError:
                 db.close()
@@ -770,6 +811,12 @@ def application(environ,start_response):
             except sqlite3.OperationalError:
                 html_string += submit_setup(post_input, db)
                 #db.close()
+
+    elif path_info == "/logout":
+        session['is_authed'] = None
+        session.save()
+        status = status_REDIRECT
+        response_header = [('Location', BASE_URL_DIRECTORY)]
 
     elif is_config_request(path_info):
         response_header = [('Content-type','text/xml')]
@@ -808,6 +855,14 @@ def application(environ,start_response):
 
     start_response(status, response_header)
     return [html_string]
+
+session_opts = {
+    'session.type': 'file',
+    'session.data_dir': '/tmp',
+    'session.cookie_expires': True,
+}
+
+application = SessionMiddleware(application, session_opts)
 
 if __name__ == '__main__':
     from wsgiref.simple_server import make_server
