@@ -127,6 +127,13 @@ function list_phones() {
   $("#phone-list").load("phone-list");
 }
 
+function show_message(element, ajax_url, post_data) {
+  $(element).empty();
+  $(element).show();
+  $(element).load(ajax_url, post_data);
+  $(element).delay(2000).fadeOut("slow");
+}
+
 function open_misc_dialog(ext) {
   $("#misc-dialog > p").append("<form><textarea id='misc-area' rows='10' cols='70'></textarea></form>");
   $("#misc-area").load("get-ext-misc", {'extension':ext});
@@ -139,8 +146,7 @@ function open_misc_dialog(ext) {
     },
     buttons: {
       "OK": function() {
-        $("#phone-list-message-area").empty();
-        $("#phone-list-message-area").load("set-ext-misc", {'extension':ext, 'misc':$("#misc-area").val()});
+        show_message("#phone-list-message-area", "set-ext-misc", {'extension':ext, 'misc':$("#misc-area").val()});
         $(this).dialog("close");
       },
       Cancel: function() {
@@ -164,9 +170,7 @@ function delete_map_entry(ext) {
     buttons: {
       "Delete Extension": function() {
         $(this).dialog("close");
-        $("#phone-list-message-area").empty();
-        $("#phone-list-message-area").load("delete-map-entry", {'extension':ext});
-        //list_phones();
+        show_message("#phone-list-message-area", "delete-map-entry", {'extension':ext});
         setTimeout(list_phones, 500);
       },
       Cancel: function() {
@@ -189,8 +193,7 @@ $(document).ready(function(){
   list_phones();
 
   $("#add-phone").click(function (){
-    $("#phone-add-message-area").empty();
-    $("#phone-add-message-area").load("add-phone", {'extension':$("#extension").val(),'mac':$("#mac").val()});
+    show_message("#phone-add-message-area", "add-phone", {'extension':$("#extension").val(),'mac':$("#mac").val()});
     $("#extension").val("");
     $("#mac").val("");
     setTimeout(list_phones, 500);
@@ -198,8 +201,7 @@ $(document).ready(function(){
 
 
   $("#save-set-change").click(function (){
-    $("#edit-settings-message-area").empty();
-    $("#edit-settings-message-area").load("edit-settings", 
+    show_message("#edit-settings-message-area", "edit-settings",
     {
     'phone_server':$("#phone_server").val(),
     'phone_admin':$("#phone_admin").val(),
