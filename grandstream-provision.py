@@ -860,6 +860,8 @@ session_opts = {
     'session.type': 'file',
     'session.data_dir': '/tmp',
     'session.cookie_expires': True,
+    'session.httponly': True,
+    'session.key': 'gspr.session.id',
 }
 
 application = SessionMiddleware(application, session_opts)
