@@ -139,6 +139,7 @@ function open_misc_dialog(ext) {
   $("#misc-dialog > p").append("<form><textarea id='misc-area' rows='10' cols='70'></textarea></form>");
   $("#misc-area").load("get-ext-misc", {'extension':ext});
   $("#misc-dialog").dialog({
+    title: "Miscellaneous Options - Ext. " + ext,
     position: {my: "center", at: "center", of: $("#li_ext_" + ext)},
     width: "auto",
     modal: true,
